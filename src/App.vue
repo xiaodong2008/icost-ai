@@ -67,7 +67,7 @@ if (!account) {
 
   .view {
     width: 100%;
-    max-width: 880px;
+    max-width: 1200px;
     border-radius: 6px;
     overflow: hidden;
     position: relative;
