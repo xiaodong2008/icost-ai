@@ -1,0 +1,28 @@
+{
+  "name": "mail-helper-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "tsc && node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@alicloud/pop-core": "^1.8.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "mimetext": "^3.0.27",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^6.10.0",
+    "openai": "^4.87.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "20.8.3",
+    "@types/node-fetch": "^2.6.11",
+    "typescript": "^5.0.0",
+    "tsx": "^4.7.0"
+  }
+}
