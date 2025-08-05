@@ -50,7 +50,7 @@ const modePrompt = {
   category: string // one of the categories in the categories list
   note: string // optional, description of the expense or income
   warning: string // optional, warning message if you think the image is not clear or the data may be wrong, beware, you still need to return the result, but you can use this field to tell the user that the image is not clear or the data may be wrong, like "The image is not clear, result may be wrong" or "We can't determine the category, please double check the result"
-  transfer_to: string // optional, the account name to transfer to, fill in if the amount is transferred to another account, like Deposit or Withdraw.
+  transfer_to: string // optional, the account name to transfer to, fill in if the amount is transferred to another account, like Deposit or Withdraw, this field should be the same as one of the account name in the accounts list.
 
   Beware, the account name and transfer_to account name should be the same as the account name in the accounts list and only show account name, not currency.
   

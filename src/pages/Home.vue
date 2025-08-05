@@ -111,23 +111,49 @@ const onProcess = async () => {
     if (response.data.success) {
       // Add unique IDs and account field to each result for DataTable selection
       const accounts = getAccounts();
-      results.value = response.data.result.map((item: any, index: number) => {
-        // Find account name from currency
-        const matchingAccount = accounts.find(
-          (account) => account.currency === item.currency
-        );
-        return {
-          ...item,
-          id: `result-${Date.now()}-${index}`,
-          account: matchingAccount?.name || null,
-        };
-      });
+      let processedResults = response.data.result.map(
+        (item: any, index: number) => {
+          // Find account name from currency
+          const matchingAccount = accounts.find(
+            (account) => account.currency === item.currency
+          );
+          return {
+            ...item,
+            id: `result-${Date.now()}-${index}`,
+            account: matchingAccount?.name || null,
+          };
+        }
+      );
+
+      // Verify and add warnings for invalid references
+      processedResults = verifyResultData(processedResults);
+
+      // Check if any warnings were added during verification
+      const warningsAdded = processedResults.some(
+        (result: any) =>
+          result.warning &&
+          (result.warning.includes("not found in account list") ||
+            result.warning.includes("not found in category list"))
+      );
+
+      results.value = processedResults;
       selectedResults.value = []; // Clear previous selections
+
       showToast.success(
         toast,
         "Success",
         `Processed ${results.value.length} expense record(s)`
       );
+
+      // Show additional warning if verification issues were found
+      if (warningsAdded) {
+        showToast.warning(
+          toast,
+          "Verification Warning",
+          "Some records have references to accounts/categories not in your lists. Check the Warning column."
+        );
+      }
+
       console.log("Processing results:", results.value);
     } else {
       showToast.error(
@@ -267,6 +293,47 @@ const getSelectedAccountCurrency = (accountName: string) => {
   const accounts = getAccounts();
   const account = accounts.find((acc) => acc.name === accountName);
   return account?.currency || "";
+};
+
+const verifyResultData = (results: any[]) => {
+  const accounts = getAccounts();
+  const categories = getCategories();
+  const accountNames = accounts.map((acc) => acc.name);
+
+  return results.map((result) => {
+    const warnings = [];
+
+    // Check if account exists in account list
+    if (result.account && !accountNames.includes(result.account)) {
+      warnings.push(`Account "${result.account}" not found in account list`);
+    }
+
+    // Check if category exists in category list (if category is provided)
+    if (result.category && !categories.includes(result.category)) {
+      warnings.push(`Category "${result.category}" not found in category list`);
+    }
+
+    // Check if transfer_to exists in account list (if transfer_to is provided)
+    if (result.transfer_to && !accountNames.includes(result.transfer_to)) {
+      warnings.push(
+        `Transfer destination "${result.transfer_to}" not found in account list`
+      );
+    }
+
+    // Combine existing warning with new warnings
+    let combinedWarning = result.warning || "";
+    if (warnings.length > 0) {
+      const newWarnings = warnings.join("; ");
+      combinedWarning = combinedWarning
+        ? `${combinedWarning}; ${newWarnings}`
+        : newWarnings;
+    }
+
+    return {
+      ...result,
+      warning: combinedWarning || null,
+    };
+  });
 };
 
 const onEditResult = (result: any) => {
@@ -483,7 +550,13 @@ const onCancelEditResult = () => {
                 <span v-if="slotProps.data.transfer_to" class="text-blue-600">
                   {{ slotProps.data.transfer_to }}
                 </span>
-                <span v-else class="text-gray-500">-</span>
+                <span
+                  v-else-if="slotProps.data.type === 'transfer'"
+                  class="text-orange-600"
+                >
+                  None
+                </span>
+                <span v-else class="text-gray-500">N/A</span>
               </template>
             </Column>
             <Column field="note" header="Note">
