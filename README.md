@@ -8,6 +8,10 @@ Tired of manually record your bills into accounting software? Use this project t
 - Account balance screenshot to json
 - Customize your own categories, accounts, etc.
 
+## Preview
+
+![Preview](./preview.png)
+
 ## Self-Deploy Requirements
 
 - [OpenAI API](https://platform.openai.com/docs/api-reference)
