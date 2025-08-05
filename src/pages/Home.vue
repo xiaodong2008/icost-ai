@@ -200,6 +200,23 @@ const copySelectedToClipboard = () => {
   );
 };
 
+const copyAllToClipboard = () => {
+  if (results.value.length === 0) {
+    showToast.error(toast, "Error", "No results to copy");
+    return;
+  }
+
+  const textToCopy = results.value
+    .map((item) => JSON.stringify(item))
+    .join("\n");
+  copyToClipboard(textToCopy);
+  showToast.success(
+    toast,
+    "Success",
+    `Copied all ${results.value.length} record(s) to clipboard`
+  );
+};
+
 const clearResults = () => {
   results.value = [];
   selectedResults.value = [];
@@ -513,6 +530,13 @@ const onCancelEditResult = () => {
               severity="info"
               :disabled="selectedResults.length === 0"
               @click="copySelectedToClipboard"
+            />
+            <Button
+              label="Copy All"
+              variant="outlined"
+              severity="info"
+              :disabled="results.length === 0"
+              @click="copyAllToClipboard"
             />
           </div>
         </div>
