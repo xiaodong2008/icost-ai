@@ -22,6 +22,7 @@ const processImageSchema = z.object({
 const resultSchema = z.array(z.object({
   type: z.enum(["expense", "transfer", "income"]),
   amount: z.number(),
+  account: z.string(),
   currency: z.string(),
   date: z.string(),
   time: z.string(),
@@ -42,6 +43,7 @@ const modePrompt = {
   
   type: "expense" | "transfer" | "income" // required, the type of the item, if not detected, use "expense"
   amount: number // required, if not detected, use 0, always positive
+  account: string // required, the account name in the accounts list
   currency: string // one of the currencies in the accounts list
   date: string // required, format: YYYY-MM-DD, if not detected, use ${date}
   time: string // required, format: HH:MM, if not detected, use ${time}
@@ -49,12 +51,16 @@ const modePrompt = {
   note: string // optional, description of the expense or income
   warning: string // optional, warning message if you think the image is not clear or the data may be wrong, beware, you still need to return the result, but you can use this field to tell the user that the image is not clear or the data may be wrong, like "The image is not clear, result may be wrong" or "We can't determine the category, please double check the result"
   transfer_to: string // optional, the account name to transfer to, fill in if the amount is transferred to another account, like Deposit or Withdraw.
+
+  Beware, the account name and transfer_to account name should be the same as the account name in the accounts list and only show account name, not currency.
   
   Example:
   [
     {
       type: "expense",
       amount: 49.9,
+      account: "Ant Bank",
+      currency: "HKD",
       date: "2025-01-01",
       time: "10:00",
       category: "Food",
@@ -65,6 +71,8 @@ const modePrompt = {
     {
       type: "transfer",
       amount: 100,
+      account: "Alipay",
+      currency: "CNY",
       date: "2025-01-01",
       time: "21:36",
       category: null, // if it is transfer, the category should be null

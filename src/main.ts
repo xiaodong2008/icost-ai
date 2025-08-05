@@ -13,6 +13,7 @@ import Dialog from 'primevue/dialog';
 import FileUpload from 'primevue/fileupload';
 import Lura from "@primeuix/themes/aura";
 import PrimeVue from "primevue/config";
+import Select from 'primevue/select';
 import SelectButton from "primevue/selectbutton";
 import Toast from "primevue/toast";
 import ToastService from "primevue/toastservice";
@@ -57,6 +58,7 @@ app.use(PrimeVue, {
 });
 app.use(ToastService);
 app.component("Button", Button);
+app.component("Select", Select);
 app.component("Card", Card);
 app.component("InputText", InputText);
 app.component("Textarea", Textarea);

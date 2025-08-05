@@ -20,6 +20,21 @@ const results = ref<any[]>([]);
 const selectedResults = ref<any[]>([]);
 const customPrompt = ref(localStorage.getItem("customPrompt") || "");
 
+// Dialog state for editing results
+const editDialogVisible = ref(false);
+const editingResultIndex = ref(-1);
+const editResultForm = ref({
+  type: "expense",
+  amount: "0",
+  account: "",
+  date: "",
+  time: "",
+  category: "",
+  note: "",
+  transfer_to: "",
+  warning: "",
+});
+
 function onFileSelect(event: any) {
   const file = event.files[0];
   const reader = new FileReader();
@@ -94,11 +109,19 @@ const onProcess = async () => {
     );
 
     if (response.data.success) {
-      // Add unique IDs to each result for DataTable selection
-      results.value = response.data.result.map((item: any, index: number) => ({
-        ...item,
-        id: `result-${Date.now()}-${index}`,
-      }));
+      // Add unique IDs and account field to each result for DataTable selection
+      const accounts = getAccounts();
+      results.value = response.data.result.map((item: any, index: number) => {
+        // Find account name from currency
+        const matchingAccount = accounts.find(
+          (account) => account.currency === item.currency
+        );
+        return {
+          ...item,
+          id: `result-${Date.now()}-${index}`,
+          account: matchingAccount?.name || null,
+        };
+      });
       selectedResults.value = []; // Clear previous selections
       showToast.success(
         toast,
@@ -200,6 +223,112 @@ const getAccountDisplay = (currency: string) => {
   // If no matching account found, just show currency
   return `Unknown(${currency})`;
 };
+
+const getAccounts = () => {
+  return JSON.parse(localStorage.getItem("account") || "[]") as Account[];
+};
+
+const getCategories = () => {
+  return localStorage.getItem("category")?.split(",") || [];
+};
+
+const getAccountOptions = (accounts: Account[]) => {
+  return accounts.map((account) => ({
+    label: `${account.name} (${account.currency})`,
+    value: account.name,
+  }));
+};
+
+const getCategoryOptions = (categories: string[]) => {
+  return categories.map((category) => ({
+    label: category,
+    value: category,
+  }));
+};
+
+const getSelectedAccountCurrency = (accountName: string) => {
+  const accounts = getAccounts();
+  const account = accounts.find((acc) => acc.name === accountName);
+  return account?.currency || "";
+};
+
+const onEditResult = (result: any) => {
+  editingResultIndex.value = results.value.findIndex((r) => r.id === result.id);
+
+  editResultForm.value = {
+    type: result.type || "expense",
+    amount: result.amount || "0",
+    account: result.account || "",
+    date: result.date || "",
+    time: result.time || "",
+    category: result.category || "",
+    note: result.note || "",
+    transfer_to: result.transfer_to || "",
+    warning: result.warning || "",
+  };
+  editDialogVisible.value = true;
+};
+
+const onSaveEditedResult = () => {
+  if (
+    !editResultForm.value.amount ||
+    parseFloat(editResultForm.value.amount) <= 0
+  ) {
+    showToast.error(toast, "Error", "Amount must be greater than 0");
+    return;
+  }
+
+  if (!editResultForm.value.date) {
+    showToast.error(toast, "Error", "Date is required");
+    return;
+  }
+
+  if (!editResultForm.value.time) {
+    showToast.error(toast, "Error", "Time is required");
+    return;
+  }
+
+  if (!editResultForm.value.account) {
+    showToast.error(toast, "Error", "Account is required");
+    return;
+  }
+
+  // Update the result in the array
+  const updatedResult = {
+    ...results.value[editingResultIndex.value],
+    type: editResultForm.value.type,
+    amount: parseFloat(editResultForm.value.amount),
+    account: editResultForm.value.account,
+    date: editResultForm.value.date,
+    time: editResultForm.value.time,
+    category: editResultForm.value.category.trim() || null,
+    note: editResultForm.value.note.trim() || null,
+    transfer_to: editResultForm.value.transfer_to.trim() || null,
+    warning: editResultForm.value.warning.trim() || null,
+  };
+
+  results.value[editingResultIndex.value] = updatedResult;
+
+  // Close dialog and show success message
+  editDialogVisible.value = false;
+  showToast.success(toast, "Success", "Result updated successfully");
+};
+
+const onCancelEditResult = () => {
+  editDialogVisible.value = false;
+  editResultForm.value = {
+    type: "expense",
+    amount: "0",
+    account: "",
+    date: "",
+    time: "",
+    category: "",
+    note: "",
+    transfer_to: "",
+    warning: "",
+  };
+  editingResultIndex.value = -1;
+};
 </script>
 
 <template>
@@ -293,7 +422,13 @@ const getAccountDisplay = (currency: string) => {
             <Column field="currency" header="Account">
               <template #body="slotProps">
                 <span class="text-gray-700 font-medium">
-                  {{ getAccountDisplay(slotProps.data.currency) }}
+                  {{
+                    slotProps.data.account
+                      ? `${slotProps.data.account}(${getSelectedAccountCurrency(
+                          slotProps.data.account
+                        )})`
+                      : getAccountDisplay(slotProps.data.currency)
+                  }}
                 </span>
               </template>
             </Column>
@@ -350,6 +485,17 @@ const getAccountDisplay = (currency: string) => {
                 <span v-else class="text-gray-500">-</span>
               </template>
             </Column>
+            <Column field="action" header="Action">
+              <template #body="slotProps">
+                <Button
+                  label="Edit"
+                  variant="outlined"
+                  severity="info"
+                  size="small"
+                  @click="onEditResult(slotProps.data)"
+                />
+              </template>
+            </Column>
           </DataTable>
           <div class="results-actions">
             <span class="selection-info">
@@ -372,6 +518,140 @@ const getAccountDisplay = (currency: string) => {
         </div>
       </template>
     </Card>
+
+    <!-- Edit Result Dialog -->
+    <Dialog
+      v-model:visible="editDialogVisible"
+      header="Edit Result"
+      :style="{ width: '600px' }"
+      modal
+    >
+      <div class="dialog-content">
+        <div class="form-grid">
+          <div class="field">
+            <label for="result-type">Type *</label>
+            <SelectButton
+              id="result-type"
+              v-model="editResultForm.type"
+              :options="[
+                { label: 'Expense', value: 'expense' },
+                { label: 'Income', value: 'income' },
+                { label: 'Transfer', value: 'transfer' },
+              ]"
+              optionLabel="label"
+              optionValue="value"
+              class="w-full"
+            />
+          </div>
+
+          <div class="field">
+            <label for="result-amount">Amount *</label>
+            <InputText
+              id="result-amount"
+              v-model="editResultForm.amount"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Enter amount"
+              class="w-full"
+            />
+          </div>
+
+          <div class="field">
+            <label for="result-account">Account *</label>
+            <Select
+              id="result-account"
+              v-model="editResultForm.account"
+              :options="getAccountOptions(getAccounts())"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select an account"
+              class="w-full"
+            />
+            <small v-if="editResultForm.account" class="account-currency">
+              Currency: {{ getSelectedAccountCurrency(editResultForm.account) }}
+            </small>
+          </div>
+
+          <div class="field">
+            <label for="result-date">Date *</label>
+            <InputText
+              id="result-date"
+              v-model="editResultForm.date"
+              type="date"
+              class="w-full"
+            />
+          </div>
+
+          <div class="field">
+            <label for="result-time">Time *</label>
+            <InputText
+              id="result-time"
+              v-model="editResultForm.time"
+              type="time"
+              class="w-full"
+            />
+          </div>
+
+          <div class="field">
+            <label for="result-category">Category</label>
+            <Select
+              id="result-category"
+              v-model="editResultForm.category"
+              :options="getCategoryOptions(getCategories())"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select a category"
+              class="w-full"
+              :clearable="true"
+            />
+          </div>
+
+          <div class="field full-width">
+            <label for="result-transfer-to">Transfer To</label>
+            <Select
+              id="result-transfer-to"
+              v-model="editResultForm.transfer_to"
+              :options="getAccountOptions(getAccounts())"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Select destination account"
+              class="w-full"
+              :clearable="true"
+            />
+          </div>
+
+          <div class="field full-width">
+            <label for="result-note">Note</label>
+            <Textarea
+              id="result-note"
+              v-model="editResultForm.note"
+              placeholder="Enter note"
+              class="w-full"
+              :autoResize="true"
+              rows="2"
+            />
+          </div>
+
+          <div class="field full-width">
+            <label for="result-warning">Warning</label>
+            <Textarea
+              id="result-warning"
+              v-model="editResultForm.warning"
+              placeholder="Enter warning message"
+              class="w-full"
+              :autoResize="true"
+              rows="2"
+            />
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <Button label="Cancel" variant="outlined" @click="onCancelEditResult" />
+        <Button label="Save" @click="onSaveEditedResult" />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -430,5 +710,42 @@ const getAccountDisplay = (currency: string) => {
 
 .text-gray-700 {
   color: #374151;
+}
+
+.dialog-content {
+  .field {
+    margin-bottom: 1rem;
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: var(--p-text-color);
+    }
+
+    .w-full {
+      width: 100%;
+    }
+  }
+
+  .field:last-child {
+    margin-bottom: 0;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+
+    .field.full-width {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .account-currency {
+    margin-top: 0.25rem;
+    color: var(--p-text-color-secondary);
+    font-style: italic;
+  }
 }
 </style>
